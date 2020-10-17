@@ -9,31 +9,32 @@
 #           $ docker build -t zkweb:v1.2.1 .
 #
 # 容器启动
-#  1. 命令： docker run -p 8099:8099 --name zkweb  -d zkweb:v1.2.1
+#  1. 命令： docker run -p 8099:8099 --name zkweb -v /etc/localtime:/etc/localtime:ro zkweb:v1.2.1
 #
 #
 #############################################################################
 
 
-# java镜像
-FROM daocloud.io/java:8
+FROM registry.cn-shanghai.aliyuncs.com/outsrkem/jre:1.8.0_261
 
 # 将本地文件夹挂载到当前容器
+
 # 创建/tmp目录并持久化到Docker数据文件夹，因为Spring Boot使用的内嵌Tomcat容器默认使用/tmp作为工作目录。
+RUN mkdir /opt/server
+
 VOLUME ["/tmp"]
 
-# 解决容器时间和宿主主机时间不一致问题
-RUN /bin/cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && echo 'Asia/Shanghai' >/etc/timezone
+COPY zkWeb-v1.2.1.jar   /opt/server/app.jar
+COPY docker-entrypoint.sh /bin/entrypoint.sh
 
 
-# 拷贝文件到容器
-COPY zkWeb-v1.2.1.jar   /opt/app.jar
-
-# 打开服务端口
 EXPOSE 8099 8099
+RUN chown 2000:2000 -R /opt/server \
+    && chmod 600 /opt/server/app.jar \
+    && chmod +x /bin/entrypoint.sh
 
-# 配置环境变量 todo jvm优化参数可以设置这里
-ENV JAVA_OPTS='-Xmx4096m -Xms4096m ' APP_OPTS=''
+USER server
 
-# 配置容器启动后执行的命令
-ENTRYPOINT java $JAVA_OPTS -server -Dfile.encoding=UTF-8 -Duser.language=zh -Duser.region=CN -Djava.security.egd=file:/dev/./urandom -jar /opt/app.jar $APP_OPTS
+WORKDIR "/opt/server"
+ENTRYPOINT ["entrypoint.sh"]
+CMD ["-jar","app.jar"]
